@@ -13,8 +13,10 @@ function buildPrisma() {
       url,
       authToken: process.env.DATABASE_AUTH_TOKEN,
     });
-    const adapter = new PrismaLibSQL(client);
-    return new PrismaClient({ adapter } as Parameters<typeof PrismaClient>[0]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adapter = new PrismaLibSQL(client as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new PrismaClient({ adapter } as any);
   }
 
   // Local file-based SQLite
