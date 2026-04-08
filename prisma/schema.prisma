@@ -1,0 +1,201 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & Teams ───────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("member")
+  avatarUrl    String?
+  settings     String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contacts          Contact[]    @relation("CreatedBy")
+  assignedContacts  Contact[]    @relation("AssignedTo")
+  campaigns         Campaign[]
+  templates         Template[]
+  sequences         Sequence[]
+  segments          Segment[]
+  activities        Activity[]
+}
+
+// ─── Contacts / CRM ─────────────────────────────────────────────
+
+model Contact {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String
+  company      String?
+  title        String?
+  phone        String?
+  type         String   @default("lead")
+  status       String   @default("active")
+  leadScore    Int      @default(0)
+  source       String?
+  tags         String   @default("[]")
+  customFields String   @default("{}")
+  notes        String?
+  createdById  String
+  createdBy    User     @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  segments     ContactSegment[]
+  sends        EmailSend[]
+  activities   Activity[]
+
+  @@unique([email, createdById])
+}
+
+model Segment {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  rules       String   @default("[]")
+  contactType String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contacts    ContactSegment[]
+  campaigns   Campaign[]
+}
+
+model ContactSegment {
+  contactId String
+  segmentId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  segment   Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, segmentId])
+}
+
+// ─── Email Templates ─────────────────────────────────────────────
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  subject     String
+  bodyHtml    String
+  bodyText    String?
+  category    String   @default("general")
+  variables   String   @default("[]")
+  isShared    Boolean  @default(true)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sequenceSteps SequenceStep[]
+  campaigns     Campaign[]
+}
+
+// ─── Campaigns ───────────────────────────────────────────────────
+
+model Campaign {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  status      String   @default("draft")
+  description String?
+  segmentId   String?
+  segment     Segment? @relation(fields: [segmentId], references: [id])
+  templateId  String?
+  template    Template? @relation(fields: [templateId], references: [id])
+  sequenceId  String?
+  sequence    Sequence? @relation(fields: [sequenceId], references: [id])
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sends       EmailSend[]
+}
+
+// ─── Sequences ───────────────────────────────────────────────────
+
+model Sequence {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  description String?
+  status      String   @default("draft")
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  steps       SequenceStep[]
+  campaigns   Campaign[]
+}
+
+model SequenceStep {
+  id          String   @id @default(uuid())
+  sequenceId  String
+  sequence    Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  stepOrder   Int
+  delayDays   Int      @default(0)
+  delayHours  Int      @default(0)
+  action      String   @default("send-email")
+  templateId  String?
+  template    Template? @relation(fields: [templateId], references: [id])
+  subject     String?
+  bodyHtml    String?
+  condition   String?
+  isForward   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Email Sends & Tracking ──────────────────────────────────────
+
+model EmailSend {
+  id          String   @id @default(uuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id])
+  templateId  String?
+  stepOrder   Int?
+  status      String   @default("queued")
+  sentAt      DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  repliedAt   DateTime?
+  bouncedAt   DateTime?
+  messageId   String?
+  createdAt   DateTime @default(now())
+}
+
+// ─── Activity Log ────────────────────────────────────────────────
+
+model Activity {
+  id          String   @id @default(uuid())
+  type        String
+  description String
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+}
