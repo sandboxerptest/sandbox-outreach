@@ -24,12 +24,12 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Login failed");
+        setError(data.detail ? `${data.error}: ${data.detail} [dbUrl: ${data.dbUrl}]` : data.error || "Login failed");
         return;
       }
       router.push("/");
-    } catch {
-      setError("Something went wrong");
+    } catch (err) {
+      setError(`Something went wrong: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -48,19 +48,19 @@ export default function LoginPage() {
       if (!regRes.ok) {
         const data = await regRes.json();
         if (data.error?.includes("already exists")) {
-          // Login as demo user instead
           const loginRes = await fetch("/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: "demo@sandbox.com", password: "demo123" }),
           });
           if (!loginRes.ok) {
-            setSeedResult("Demo account exists. Login with demo@sandbox.com / demo123");
+            const loginData = await loginRes.json();
+            setSeedResult(`Login failed: ${loginData.detail || loginData.error} [dbUrl: ${loginData.dbUrl}]`);
             setSeeding(false);
             return;
           }
         } else {
-          setSeedResult("Failed to create demo account");
+          setSeedResult(`Register failed: ${data.detail || data.error} [dbUrl: ${data.dbUrl}]`);
           setSeeding(false);
           return;
         }
@@ -68,6 +68,11 @@ export default function LoginPage() {
       // Seed data for the logged-in user
       const seedRes = await fetch("/api/seed", { method: "POST" });
       const seedData = await seedRes.json();
+      if (!seedRes.ok) {
+        setSeedResult(`Seed failed: ${seedData.detail || seedData.error} [dbUrl: ${seedData.dbUrl}]`);
+        setSeeding(false);
+        return;
+      }
       setSeedResult(`Loaded ${seedData.contacts} contacts, ${seedData.templates} templates`);
       // Redirect after a moment
       setTimeout(() => router.push("/"), 1500);
