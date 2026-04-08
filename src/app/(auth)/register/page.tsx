@@ -28,12 +28,12 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Registration failed");
+        setError(data.detail ? `${data.error}: ${data.detail} [dbUrl: ${data.dbUrl}]` : data.error || "Registration failed");
         return;
       }
       router.push("/");
-    } catch {
-      setError("Something went wrong");
+    } catch (err) {
+      setError(`Something went wrong: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
