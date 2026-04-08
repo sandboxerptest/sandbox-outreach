@@ -5,7 +5,6 @@ import { createClient } from "@libsql/client";
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function getTursoUrl(): string {
-  // Vercel Turso integration may use various prefixed names
   return (
     process.env.TURSO_DATABASE_URL ||
     process.env.storage_TURSO_DATABASE_URL ||
@@ -28,7 +27,7 @@ function buildPrisma() {
   const authToken = getTursoToken();
 
   // If using Turso (libsql:// or https://), use the libsql adapter
-  if (url.startsWith("libsql://") || url.startsWith("https://")) {
+  if (url && (url.startsWith("libsql://") || url.startsWith("https://"))) {
     const client = createClient({ url, authToken });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adapter = new PrismaLibSQL(client as any);
@@ -36,7 +35,13 @@ function buildPrisma() {
     return new PrismaClient({ adapter } as any);
   }
 
-  // Local file-based SQLite
+  // Local file-based SQLite (or build-time with no DB)
+  if (url && url.startsWith("file:")) {
+    return new PrismaClient();
+  }
+
+  // No database URL available (build-time static generation)
+  // Return a PrismaClient that will fail at query time, not at init time
   return new PrismaClient();
 }
 
